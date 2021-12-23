@@ -19,7 +19,6 @@ function diep_api() {
     return;
   }
   
-  log("init");
   let event_emitter_safe_switch = false;
   function safe_api_call() {
     event_emitter_safe_switch = true;
@@ -29,6 +28,7 @@ function diep_api() {
       #events;
       constructor() {
         this.#events = new Map;
+        this.version = "v0.1.1";
         
         this.player = {
           x: NaN,
@@ -81,6 +81,7 @@ function diep_api() {
     enumerable: false
   });
   Reflect.preventExtensions(win[api]);
+  log("init " + win[api].version);
   
   Reflect.defineProperty(win, "input", {
     set: function(to) {
