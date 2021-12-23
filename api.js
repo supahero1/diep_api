@@ -19,16 +19,13 @@ function diep_api() {
     return;
   }
   
-  let event_emitter_safe_switch = false;
-  function safe_api_call() {
-    event_emitter_safe_switch = true;
-  }
+  const key = Symbol("diep.api.key");
   Reflect.defineProperty(win, api, {
     value: new class {
       #events;
       constructor() {
         this.#events = new Map;
-        this.version = "v0.1.1";
+        this.version = "v0.1.2";
         
         this.player = {
           x: NaN,
@@ -48,10 +45,8 @@ function diep_api() {
         }
         set.add(cb);
       }
-      emit(what, ...args) {
-        if(event_emitter_safe_switch) {
-          event_emitter_safe_switch = false;
-        } else {
+      emit(k, what, ...args) {
+        if(typeof k == "undefined" || k != key) {
           throw new Error("This function is reserved for internal use.");
           return;
         }
@@ -63,11 +58,9 @@ function diep_api() {
           cb(...args);
         }
       }
-      remove(what, cb) {
+      remove(what, cb, k) {
         if(typeof cb == "undefined") {
-          if(event_emitter_safe_switch) {
-            event_emitter_safe_switch = false;
-          } else {
+          if(typeof k == "undefined" || k != key) {
             throw new Error("This function is reserved for internal use.");
             return;
           }
@@ -83,11 +76,18 @@ function diep_api() {
   Reflect.preventExtensions(win[api]);
   log("init " + win[api].version);
   
+  function diep_api_emit(what, ...args) {
+    win[api].emit(key, what, ...args);
+  }
+  function diep_api_remove(what, cb) {
+    win[api].remove(what, cb, key);
+  }
+  
   Reflect.defineProperty(win, "input", {
     set: function(to) {
       delete win.input;
       win.input = to;
-      win[api].emit("ready");
+      diep_api_emit("ready");
       log("ready");
     },
     get: function() {
@@ -102,7 +102,7 @@ function diep_api() {
     new MutationObserver(function(list, observer) {
       list.forEach(function(mut) {
         if(mut.addedNodes[0].id == "canvas") {
-          win[api].emit("pre.ready");
+          diep_api_emit(key, "pre.ready");
           observer.disconnect();
           resolve();
         }
