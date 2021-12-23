@@ -25,7 +25,7 @@ function diep_api() {
       #events;
       constructor() {
         this.#events = new Map;
-        this.version = "v0.1.2";
+        this.version = "v0.1.3";
         
         this.player = {
           x: NaN,
@@ -35,6 +35,19 @@ function diep_api() {
             y: NaN
           }
         };
+        
+        this.minimap = {
+          normal: {
+            x: NaN,
+            y: NaN,
+            side: NaN
+          },
+          extended: {
+            x: NaN,
+            y: NaN,
+            side: NaN
+          }
+        }
       }
       on(what, cb) {
         let set = this.#events.get(what);
@@ -138,6 +151,19 @@ function diep_api() {
   let ratio = get_ratio();
   let scale = get_scale();
   
+  win.minimap = {
+    normal: [1.875, 1.75],
+    extended: [2, 2],
+    drawn: [1.875, 1.75]
+  };
+  function calculate_minimap() {
+    win[api].minimap.normal.x = canvas.width - ratio * win.minimap.drawn[0];
+    win[api].minimap.normal.y = canvas.height - ratio * win.minimap.drawn[0];
+    win[api].minimap.normal.side = ratio * win.minimap.drawn[1];
+    
+    
+  }
+  
   function dynamic_update() {
     pixel_scale = win.devicePixelRatio;
     if(canvas.width != win.innerWidth * pixel_scale || canvas.height != win.innerHeight * pixel_scale) {
@@ -147,6 +173,14 @@ function diep_api() {
     }
     ratio = get_ratio();
     scale = get_scale();
+    
+    calculate_minimap();
+    
+    ctx.save();
+    ctx.beginPath();
+    ctx.fillStyle = "#800000A0";
+    ctx.fillRect(win[api].minimap.normal.x, win[api].minimap.normal.y, win[api].minimap.normal.side, win[api].minimap.normal.side);
+    ctx.restore();
     
     requestAnimationFrame(dynamic_update);
   }
