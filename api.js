@@ -25,7 +25,10 @@ function diep_api() {
       #events;
       constructor() {
         this.#events = new Map;
-        this.version = "v0.1.3";
+        this.version = "v0.1.4";
+        
+        this.canvas_ready = false;
+        this.game_ready = false;
         
         this.player = {
           x: NaN,
@@ -100,6 +103,7 @@ function diep_api() {
     set: function(to) {
       delete win.input;
       win.input = to;
+      win[api].game_ready = true;
       diep_api_emit("ready");
       log("ready");
     },
@@ -115,6 +119,7 @@ function diep_api() {
     new MutationObserver(function(list, observer) {
       list.forEach(function(mut) {
         if(mut.addedNodes[0].id == "canvas") {
+          win[api].canvas_ready = true;
           diep_api_emit(key, "pre.ready");
           observer.disconnect();
           resolve();
@@ -176,11 +181,13 @@ function diep_api() {
     
     calculate_minimap();
     
-    ctx.save();
-    ctx.beginPath();
-    ctx.fillStyle = "#800000A0";
-    ctx.fillRect(win[api].minimap.normal.x, win[api].minimap.normal.y, win[api].minimap.normal.side, win[api].minimap.normal.side);
-    ctx.restore();
+    if(win[api].canvas_ready) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.fillStyle = "#800000A0";
+      ctx.fillRect(win[api].minimap.normal.x, win[api].minimap.normal.y, win[api].minimap.normal.side, win[api].minimap.normal.side);
+      ctx.restore();
+    }
     
     requestAnimationFrame(dynamic_update);
   }
