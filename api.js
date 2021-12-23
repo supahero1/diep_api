@@ -10,7 +10,7 @@ function diep_api() {
   function err(...a) {
     console.log("[diep.api.err] " + a.join(""));
   }
-  const win = unsafeWindow || window;
+  const win = typeof unsafeWindow == "undefined" ? window : unsafeWindow;
   if(win.input || document.getElementById("canvas") != undefined) {
     return err("a script tried launching diep.api without \"@run-at\" set to \"document-body\" or a one-time timing error has occured");
   }
