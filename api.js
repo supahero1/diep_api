@@ -10,9 +10,9 @@ function diep_api() {
   function err(...a) {
     console.log("[diep.api.err] " + a.join(""));
   }
-  const win = typeof unsafeWindow == "undefined" ? window : unsafeWindow;
+  const win = unsafeWindow || window;
   if(win.input || document.getElementById("canvas") != undefined) {
-    return err("a script tried launching diep.api without \"@run-at\" set to \"document-body\"");
+    return err("a script tried launching diep.api without \"@run-at\" set to \"document-body\" or a one-time timing error has occured");
   }
   const api = diep_api();
   if(win[api]) {
@@ -20,6 +20,10 @@ function diep_api() {
   }
   
   log("init");
+  let event_emitter_safe_switch = false;
+  function safe_api_call() {
+    event_emitter_safe_switch = true;
+  }
   Reflect.defineProperty(win, api, {
     value: new class {
       #events;
@@ -45,6 +49,12 @@ function diep_api() {
         set.add(cb);
       }
       emit(what, ...args) {
+        if(event_emitter_safe_switch) {
+          event_emitter_safe_switch = false;
+        } else {
+          throw new Error("This function is reserved for internal use.");
+          return;
+        }
         const set = this.#events.get(what);
         if(!set) {
           return;
@@ -55,6 +65,12 @@ function diep_api() {
       }
       remove(what, cb) {
         if(typeof cb == "undefined") {
+          if(event_emitter_safe_switch) {
+            event_emitter_safe_switch = false;
+          } else {
+            throw new Error("This function is reserved for internal use.");
+            return;
+          }
           this.#events.delete(what);
           return;
         }
@@ -78,6 +94,8 @@ function diep_api() {
     },
     configurable: true
   });
+  
+  win.Module = {};
   
   await new Promise(function(resolve) {
     new MutationObserver(function(list, observer) {
@@ -122,6 +140,7 @@ function diep_api() {
   function dynamic_update() {
     pixel_scale = win.devicePixelRatio;
     if(canvas.width != win.innerWidth * pixel_scale || canvas.height != win.innerHeight * pixel_scale) {
+      /* Diep.io does not handle this */
       canvas.width = win.innerWidth * pixel_scale;
       canvas.height = win.innerHeight * pixel_scale;
     }
