@@ -21,7 +21,7 @@ function diep_api() {
   }
   
   const api = {
-    version: "v0.1.7",
+    version: "v0.1.8",
     
     events: new Map,
     
@@ -31,12 +31,12 @@ function diep_api() {
     canvas: undefined,
     ctx: undefined,
     
-    player_pos_by_viewport: true,
     drew_player_pos: false,
-    screen_to_map: 10000,
     ratio: NaN,
     scale: NaN,
     ui_scale: NaN,
+    execute: function(){},
+    is_in_game: false,
     
     background_color: "#cdcdcd",
     grid_color: "#000000",
@@ -55,8 +55,6 @@ function diep_api() {
     prevent_mouse_buttons: false,
     prevent_keys: false,
     typing: false,
-    
-    is_in_game: false,
     
     player: {
       x: NaN,
@@ -84,8 +82,8 @@ function diep_api() {
       },
       start_x: 0.0972,
       start_y: 0.0972,
-      end_x: 0.9074,
-      end_y: 0.9074
+      end_x: 0.90745,
+      end_y: 0.90745
     },
     map_size: NaN,
     transform: { x: 0, y: 0, w: 1, h: 1 },
@@ -205,7 +203,7 @@ function diep_api() {
       this.mouse.y = pos.y;
     },
     update_map: function(w, h) {
-      this.map_size = win.innerWidth / this.player.fov * this.minimap.normal.side / w;
+      this.map_size = this.canvas.width / this.player.fov * this.minimap.normal.side / w / this.scale;
     }
   };
   
@@ -220,6 +218,113 @@ function diep_api() {
       }
       get game_ready() {
         return api.game_ready;
+      }
+      
+      get canvas() {
+        return api.canvas;
+      }
+      get ctx() {
+        return api.ctx;
+      }
+      
+      get ratio() {
+        return api.ratio;
+      }
+      get scale() {
+        return api.scale;
+      }
+      get ui_scale() {
+        return api.ui_scale;
+      }
+      
+      get in_game() {
+        return api.in_game();
+      }
+      get player() {
+        return { ...api.player };
+      }
+      get mouse() {
+        return { ...api.mouse };
+      }
+      get minimap() {
+        return {
+          ...api.minimap,
+          normal: { ...api.minimap.normal },
+          extended: { ...api.minimap.extended }
+        };
+      }
+      get map_size() {
+        return api.map_size;
+      }
+      
+      set preventing_mouse_movement(bool) {
+        api.prevent_mouse_movement = !!bool;
+      }
+      get preventing_mouse_movement() {
+        return api.prevent_mouse_movement;
+      }
+      set preventing_mouse_buttons(bool) {
+        api.prevent_mouse_buttons = !!bool;
+      }
+      get preventing_mouse_buttons() {
+        return api.prevent_mouse_buttons;
+      }
+      set preventing_keys(bool) {
+        api.prevent_keys = !!bool;
+      }
+      get preventing_keys() {
+        return api.prevent_keys;
+      }
+      set typing(bool) {
+        bool = !!bool;
+        win.setTyping(bool);
+        api.typing = bool;
+      }
+      get typing() {
+        return api.typing;
+      }
+      
+      set viewport_color(color) {
+        if(typeof color != "string") {
+          throw new Error("Invalid arguments to api.set_viewport_color()");
+          return;
+        }
+        api.viewport_color = color;
+      }
+      get viewport_color() {
+        return api.viewport_color;
+      }
+      set viewport_opacity(op) {
+        if(typeof op != "number" || op < 0 || op > 1) {
+          throw new Error("Invalid arguments to api.set_viewport_opacity()");
+          return;
+        }
+        api.viewport_opacity = op;
+      }
+      get viewport_opacity() {
+        return api.viewport_opacity;
+      }
+      
+      to_map(x, y) {
+        if(typeof x != "number" || typeof y != "number") {
+          throw new Error("Invalid arguments to api.to_map()");
+          return;
+        }
+        return api.to_map(x, y);
+      }
+      to_screen(x, y) {
+        if(typeof x != "number" || typeof y != "number") {
+          throw new Error("Invalid arguments to api.to_screen()");
+          return;
+        }
+        return api.to_screen(x, y);
+      }
+      execute(str) {
+        if(typeof str != "string") {
+          throw new Error("Invalid arguments to api.execute()");
+          return;
+        }
+        return api.execute(str);
       }
       
       on(what, cb) {
@@ -242,40 +347,6 @@ function diep_api() {
           return;
         }
         return api.remove(what, cb);
-      }
-      
-      set preventing_mouse_movement(bool) {
-        api.prevent_mouse_movement = !!bool;
-      }
-      set preventing_mouse_buttons(bool) {
-        api.prevent_mouse_buttons = !!bool;
-      }
-      set preventing_keys(bool) {
-        api.prevent_keys = !!bool;
-      }
-      set typing(bool) {
-        bool = !!bool;
-        win.setTyping(bool);
-        api.typing = bool;
-      }
-      
-      set viewport_color(color) {
-        if(typeof color != "string") {
-          throw new Error("Invalid arguments to api.set_viewport_color()");
-          return;
-        }
-        api.viewport_color = color;
-      }
-      set viewport_opacity(op) {
-        if(typeof op != "number" || op < 0 || op > 1) {
-          throw new Error("Invalid arguments to api.set_viewport_opacity()");
-          return;
-        }
-        api.viewport_opacity = op;
-      }
-      
-      set position_type(type) {
-        api.player_pos_by_viewport = !!type;
       }
       
       inject_before(fn, cb) {
@@ -491,6 +562,7 @@ function diep_api() {
       api.emit("key.up", e);
     });
     
+    api.execute = win.input.execute;
     win.input.execute = api.override_extended(win.input.execute, function(fn, str) {
       str = str.trim().replace(/\s{2,}/g, " ");
       const s = str.split(" ");
@@ -513,11 +585,7 @@ function diep_api() {
           break;
         }
         case "ren_minimap_viewport": {
-          if(s[1] != "false" && s[1] != "0") {
-            api.viewport = true;
-          } else {
-            api.viewport = false;
-          }
+          api.viewport = (s[1] != "false" && s[1] != "0");
           return;
         }
       }
@@ -530,8 +598,8 @@ function diep_api() {
   
   const c = win.CanvasRenderingContext2D.prototype;
   c.stroke = api.inject_before(c.stroke, function() {
-    if(this.fillStyle == api.background_color && this.strokeStyle == api.grid_color) {
-      api.player.fov = this.globalAlpha / api.grid_opacity;
+    if(this.canvas.id != "canvas" && this.fillStyle == api.background_color && this.strokeStyle == api.grid_color) {
+      api.player.fov = this.globalAlpha / api.grid_opacity / api.scale;
     }
     api.pos_phase = 0;
   });
@@ -549,7 +617,7 @@ function diep_api() {
     }
   });
   c.lineTo = api.inject_before(c.lineTo, function(x, y) {
-    if(api.pos_phase == 0 || !api.within_minimap(x, y) || Math.hypot(api.pos_phase0[0] - x, api.pos_phase0[1] - y) > 15 * api.ui_scale) {
+    if(this.canvas.id == "canvas" || api.pos_phase == 0 || !api.within_minimap(x, y) || Math.hypot(api.pos_phase0[0] - x, api.pos_phase0[1] - y) > 15 * api.ui_scale) {
       api.pos_phase = 0;
       return;
     }
@@ -569,16 +637,12 @@ function diep_api() {
     api.transform.h = d;
   });
   c.fillRect = api.override_extended(c.fillRect, function(fn, x, y, w, h) {
-    if(api.drew_player_pos && this.fillStyle == "#000000" && api.within_minimap(x + api.transform.x + w * api.transform.w / 2, y + api.transform.y + h * api.transform.h / 2) && this.globalAlpha == 0.1) {
-      if(api.player_pos_by_viewport) {
-        api.player.raw_x = x + api.transform.x + w * api.transform.w / 2;
-        api.player.raw_y = y + api.transform.y + h * api.transform.h / 2;
-        api.player.x = (api.player.raw_x - api.minimap.extended.x) / api.minimap.extended.side;
-        api.player.y = (api.player.raw_y - api.minimap.extended.y) / api.minimap.extended.side;
-        api.update_mouse();
-        
-        api.drew_player_pos = true;
-      }
+    if(this.canvas.id != "canvas" && api.drew_player_pos && this.fillStyle == "#000000" && api.within_minimap(x + api.transform.x + w * api.transform.w / 2, y + api.transform.y + h * api.transform.h / 2) && this.globalAlpha == 0.1) {
+      api.player.raw_x = x + api.transform.x + w * api.transform.w / 2;
+      api.player.raw_y = y + api.transform.y + h * api.transform.h / 2;
+      api.player.x = (api.player.raw_x - api.minimap.extended.x) / api.minimap.extended.side;
+      api.player.y = (api.player.raw_y - api.minimap.extended.y) / api.minimap.extended.side;
+      api.update_mouse();
       api.update_map(w * api.transform.w, h * api.transform.h);
       if(api.viewport) {
         api.ctx.save();
@@ -593,10 +657,9 @@ function diep_api() {
     }
     fn.apply(this, [x, y, w, h]);
   });
+  // diep.io workaround
   
   api.once("input", function() {
-    win.input.execute("ren_minimap_viewport 1");
-    
     if(win.onresize == undefined) {
       Reflect.defineProperty(win, "onresize", {
         set: modify_diep_methods,
@@ -608,6 +671,17 @@ function diep_api() {
       });
     } else {
       modify_diep_methods(win.onresize);
+    }
+  });
+  
+  api.on("spawn", function() {
+    if(!api.viewport) {
+      api.execute("ren_minimap_viewport 1");
+    }
+  });
+  api.on("death", function() {
+    if(!api.viewport) {
+      api.execute("ren_minimap_viewport 0");
     }
   });
   
@@ -629,21 +703,21 @@ function diep_api() {
       
       api.ctx.save();
       api.ctx.beginPath();
-      api.ctx.fillStyle = "#F0F";
-      api.ctx.globalAlpha = 0.05;
+      api.ctx.fillStyle = "#0FF";
+      api.ctx.globalAlpha = 0.1;
       const pos = api.to_screen((api.minimap.end_x + api.minimap.start_x) / 2, (api.minimap.end_y + api.minimap.start_y) / 2);
-      api.ctx.arc(pos.x, pos.y, api.map_size * 0.5 * api.ui_scale * api.player.fov, 0, Math.PI * 2);
+      api.ctx.arc(pos.x, pos.y, api.map_size * 0.5 * api.scale * api.player.fov, 0, Math.PI * 2);
       api.ctx.fill();
       api.ctx.restore();
       
-      /*api.ctx.save();
+      api.ctx.save();
       api.ctx.beginPath();  
       api.ctx.fillStyle = "#F0F";
       api.ctx.globalAlpha = 0.05;
       const pos1 = api.to_screen(api.minimap.start_x, api.minimap.start_y);
       const pos2 = api.to_screen(api.minimap.end_x, api.minimap.end_y);
       api.ctx.fillRect(pos1.x, pos1.y, pos2.x - pos1.x, pos2.y - pos1.y);
-      api.ctx.restore();*/
+      api.ctx.restore();
       
       /*api.ctx.save();
       api.ctx.beginPath();
