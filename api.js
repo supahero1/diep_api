@@ -25,7 +25,7 @@ function diep_api() {
   }
   
   const api = {
-    version: "v0.2.1",
+    version: "v0.2.2",
     
     events: new Map,
     
@@ -220,6 +220,12 @@ function diep_api() {
       return {
         x: (x - this.camera.x) * this.map_size * this.scale * this.camera.fov * 1.23456789 + this.canvas.width / 2,
         y: (y - this.camera.y) * this.map_size * this.scale * this.camera.fov * 1.23456789 + this.canvas.height / 2
+      };
+    },
+    pos_to_minimap: function(x, y) {
+      return {
+        x: this.minimap.extended.x + x * this.minimap.extended.side,
+        y: this.minimap.extended.y + y * this.minimap.extended.side
       };
     },
     update_mouse: function() {
