@@ -25,7 +25,7 @@ function diep_api() {
   }
   
   const api = {
-    version: "v0.2.0",
+    version: "v0.2.1",
     
     events: new Map,
     
@@ -446,8 +446,8 @@ function diep_api() {
         } else if(api.is_in_game && !died) {
           api.emit("spawn");
         }
+        api.drew_bg = 0;
         api.drew_grid = false;
-        api.drew_bg = false;
         api.drew_player = false;
         api.drew_minimap = false;
       }
@@ -696,6 +696,14 @@ function diep_api() {
   });
   c.fillRect = api.override_extended(c.fillRect, function(fn, x, y, w, h) {
     if(!api.drawing_unsafe) {
+      if(api.drew_bg == 1 && api.camera.fov > 0.005) {
+        api.drew_bg = 2;
+        const ret = fn.apply(this, [x, y, w, h]);
+        api.clear_ctx(api.ctxs[1]);
+        api.ctxs[1].drawImage(api.canvases[0], 0, 0);
+        api.clear_ctx(api.ctxs[0]);
+        return ret;
+      }
       if(
         Math.abs(x + api.transform.x - api.minimap.normal.x) < 0.1 * api.ui_scale &&
         Math.abs(y + api.transform.y - api.minimap.normal.y) < 0.1 * api.ui_scale &&
@@ -728,13 +736,6 @@ function diep_api() {
         api.ctxs[0].drawImage(api.canvases[2], 0, 0);
         return ret;
       }
-    } else if(api.drew_bg == 1 && api.camera.fov > 0.005) {
-      api.drew_bg = 2;
-      const ret = fn.apply(this, [x, y, w, h]);
-      api.clear_ctx(api.ctxs[1]);
-      api.ctxs[1].drawImage(api.canvases[0], 0, 0);
-      api.clear_ctx(api.ctxs[0]);
-      return ret;
     }
     return fn.apply(this, [x, y, w, h]);
   });

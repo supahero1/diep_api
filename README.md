@@ -45,7 +45,7 @@ The API allows for a whole range of interactions, but also has a few restriction
 - Somehow turning off the background's grid lines, the background altogether, the minimap's viewport, the minimap altogether,
 - Running `ren_pattern_grid false`.
 
-As of now, the API silently ignores the request to change grid opacity to 0 and sets it to 0.001 instead. Moreover, viewport is displayed, but completely hidden by the API. However, that is only possible due to the `input.set_convar()` and `input.execute()` overrides. If changed otherwise, for instance using the game's built-in console, these overrides won't work and the API will break.
+As of now, the API silently ignores the request to change grid opacity to 0 and sets it to 0.001 instead. Moreover, viewport is displayed, but is completely hidden by the API. However, that is only possible due to the `input.set_convar()` and `input.execute()` overrides. If changed otherwise, for instance using the game's built-in console, these overrides won't work and the API will break.
 
 # Usage
 To start using the API from a userscript, you first need to get its object:
