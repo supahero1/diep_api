@@ -7,7 +7,7 @@
 // @source       https://github.com/supahero1/diep_api
 // @icon         https://www.google.com/s2/favicons?domain=diep.io
 // @match        https://diep.io
-// @require      https://github.com/supahero1/diep_api/api.js
+// @require      https://raw.githubusercontent.com/supahero1/diep_api/main/api.js
 // @grant        none
 // @run-at       document-body
 // ==/UserScript==
