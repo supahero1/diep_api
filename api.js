@@ -342,18 +342,13 @@ function diep_api() {
       }
       
       to_map(x, y) {
-        if(typeof x != "number" || typeof y != "number") {
-          throw new Error("Invalid arguments to api.to_map()");
-          return;
-        }
         return api.to_map(x, y);
       }
       to_screen(x, y) {
-        if(typeof x != "number" || typeof y != "number") {
-          throw new Error("Invalid arguments to api.to_screen()");
-          return;
-        }
         return api.to_screen(x, y);
+      }
+      pos_to_minimap(x, y) {
+        return api.pos_to_minimap(x, y);
       }
       execute(str) {
         if(typeof str != "string") {
