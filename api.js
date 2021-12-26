@@ -695,7 +695,7 @@ function diep_api() {
     api.transform.h = d;
   });
   c.fillRect = api.override_extended(c.fillRect, function(fn, x, y, w, h) {
-    if(!api.drawing_unsafe && this.canvas.id != "canvas") {
+    if(!api.drawing_unsafe) {
       if(
         Math.abs(x + api.transform.x - api.minimap.normal.x) < 0.1 * api.ui_scale &&
         Math.abs(y + api.transform.y - api.minimap.normal.y) < 0.1 * api.ui_scale &&
@@ -739,7 +739,7 @@ function diep_api() {
     return fn.apply(this, [x, y, w, h]);
   });
   c.createPattern = api.inject_after(c.createPattern, function() {
-    if(this.canvas.id == "canvas") {
+    if(!api.drawing_unsafe) {
       ++api.drew_bg;
     }
   });
