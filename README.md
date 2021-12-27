@@ -16,7 +16,7 @@
 # Requirements
 This API must be added to any userscript which wishes to use it. Having said that, it's not recommended to just copy paste the code. Instead, you should tweak your userscript meta information to include the following line:
 ```js
-// @require     https://raw.githubusercontent.com/supahero1/diep_api/main/api.js
+// @require     https://raw.githubusercontent.com/supahero1/diep_api/main/api.min.js
 ```
 You must also add the following line:
 ```js
