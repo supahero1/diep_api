@@ -431,11 +431,11 @@ function diep_api() {
     configurable: true
   });
   
-  Reflect.defineProperty(Object.prototype, "postRun", {
+  Reflect.defineProperty(Object.prototype, "noInitialRun", {
     set: function(to) {
-      delete Object.prototype.postRun;
-      delete this.postRun;
-      this.postRun = to;
+      delete Object.prototype.noInitialRun;
+      delete this.noInitialRun;
+      this.noInitialRun = to;
       api.module = this;
       this.postRun.push(function() {
         api.game_ready = true;
@@ -443,8 +443,8 @@ function diep_api() {
       });
     },
     get: function() {
-      delete Object.prototype.postRun;
-      delete this.postRun;
+      delete Object.prototype.noInitialRun;
+      delete this.noInitialRun;
       api.module = this;
       this.postRun.push(function() {
         api.game_ready = true;
