@@ -25,7 +25,7 @@ function diep_api() {
   }
   
   const api = {
-    version: "v0.2.2",
+    version: "v0.2.3",
     
     events: new Map,
     
@@ -47,8 +47,10 @@ function diep_api() {
     ratio: NaN,
     scale: NaN,
     ui_scale: NaN,
-    execute: function(){},
+    
+    execute: function(str){},
     is_in_game: false,
+    module: undefined,
     
     background_color: "#cdcdcd",
     grid_color: "#000000",
@@ -114,17 +116,17 @@ function diep_api() {
     },
     
     get_ratio: function() {
-      if(canvas.height * 16 / 9 >= canvas.width) {
-        this.ratio = canvas.height * this.ui_scaling;
+      if(this.canvas.height * 16 / 9 >= this.canvas.width) {
+        this.ratio = this.canvas.height * this.ui_scaling;
       } else {
-        this.ratio = canvas.width / 16 * 9 * this.ui_scaling;
+        this.ratio = this.canvas.width / 16 * 9 * this.ui_scaling;
       }
     },
     get_scale: function() {
-      if(canvas.height * 16 / 9 >= canvas.width) {
-        this.scale = canvas.height / 1080;
+      if(this.canvas.height * 16 / 9 >= this.canvas.width) {
+        this.scale = this.canvas.height / 1080;
       } else {
-        this.scale = canvas.width / 1920;
+        this.scale = this.canvas.width / 1920;
       }
       this.ui_scale = this.scale * this.ui_scaling;
     },
@@ -222,7 +224,7 @@ function diep_api() {
         y: (y - this.camera.y) * this.map_size * this.scale * this.camera.fov * 1.23456789 + this.canvas.height / 2
       };
     },
-    pos_to_minimap: function(x, y) {
+    to_minimap: function(x, y) {
       return {
         x: this.minimap.extended.x + x * this.minimap.extended.side,
         y: this.minimap.extended.y + y * this.minimap.extended.side
@@ -260,9 +262,6 @@ function diep_api() {
         return api.ctx;
       }
       
-      get ratio() {
-        return api.ratio;
-      }
       get scale() {
         return api.scale;
       }
@@ -272,6 +271,9 @@ function diep_api() {
       
       get in_game() {
         return api.in_game();
+      }
+      get module() {
+        return api.module;
       }
       get player() {
         return { ...api.player };
@@ -347,8 +349,8 @@ function diep_api() {
       to_screen(x, y) {
         return api.to_screen(x, y);
       }
-      pos_to_minimap(x, y) {
-        return api.pos_to_minimap(x, y);
+      to_minimap(x, y) {
+        return api.to_minimap(x, y);
       }
       execute(str) {
         if(typeof str != "string") {
@@ -421,15 +423,37 @@ function diep_api() {
       delete win.input;
       win.input = to;
       api.input_ready = true;
-      api.emit("input");
-      
-      api.game_ready = true;
-      api.emit("ready");
+      api.emit("input", win.input);
     },
     get: function() {
       return undefined;
     },
     configurable: true
+  });
+  
+  Reflect.defineProperty(Object.prototype, "postRun", {
+    set: function(to) {
+      delete Object.prototype.postRun;
+      delete this.postRun;
+      this.postRun = to;
+      api.module = this;
+      this.postRun.push(function() {
+        api.game_ready = true;
+        api.emit("ready");
+      });
+    },
+    get: function() {
+      delete Object.prototype.postRun;
+      delete this.postRun;
+      api.module = this;
+      this.postRun.push(function() {
+        api.game_ready = true;
+        api.emit("ready");
+      });
+      return undefined;
+    },
+    configurable: true,
+    enumerable: false
   });
   
   win.requestAnimationFrame = new Proxy(win.requestAnimationFrame, {
@@ -455,7 +479,10 @@ function diep_api() {
       const ret = to.apply(what, args);
       if(ok) {
         api.drawing_unsafe = true;
+        api.ctx.save();
+        api.ctx.resetTransform();
         api.emit("draw");
+        api.ctx.restore();
         api.drawing_unsafe = false;
       }
       return ret;
@@ -496,7 +523,7 @@ function diep_api() {
   api.calculate_minimap();
   
   api.canvas_ready = true;
-  api.emit("canvas");
+  api.emit("canvas", api.ctx);
   
   function dynamic_update() {
     const w = Math.floor(win.innerWidth * win.devicePixelRatio);
@@ -642,6 +669,7 @@ function diep_api() {
           api.viewport = (s[1] != "false" && s[1] != "0");
           return;
         }
+        case "ren_pattern_grid": return;
       }
       return fn.call(this, str);
     });
@@ -659,7 +687,7 @@ function diep_api() {
     api.pos_phase = 0;
   });
   c.moveTo = api.inject_before(c.moveTo, function(x, y) {
-    if(api.pos_phase != 0) {
+    if(!api.drew_minimap || api.pos_phase != 0) {
       api.pos_phase = 0;
       return;
     }
@@ -672,7 +700,7 @@ function diep_api() {
     }
   });
   c.lineTo = api.inject_before(c.lineTo, function(x, y) {
-    if(api.drawing_unsafe || api.pos_phase == 0 || !api.within_minimap(x, y) || Math.hypot(api.pos_phase0[0] - x, api.pos_phase0[1] - y) > 15 * api.ui_scale) {
+    if(api.drawing_unsafe || !api.drew_minimap || api.pos_phase == 0 || !api.within_minimap(x, y) || Math.hypot(api.pos_phase0[0] - x, api.pos_phase0[1] - y) > 15 * api.ui_scale) {
       api.pos_phase = 0;
       return;
     }
@@ -732,7 +760,10 @@ function diep_api() {
         api.clear_ctx(api.ctxs[0]);
         api.ctxs[0].drawImage(api.canvases[1], 0, 0);
         api.drawing_unsafe = true;
+        api.ctx.save();
+        api.ctx.resetTransform();
         api.emit("draw.background");
+        api.ctx.restore();
         api.drawing_unsafe = false;
         api.ctxs[0].drawImage(api.canvases[2], 0, 0);
         return ret;
@@ -761,6 +792,7 @@ function diep_api() {
     }
     
     api.execute("ren_minimap_viewport 1");
+    api.execute("ren_pattern_grid 1");
   });
   
   api.once("ready", function() {

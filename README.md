@@ -42,10 +42,9 @@ The API allows for a whole range of interactions, but also has a few restriction
 - Using the game's built-in console (accessed using the HOME key),
 - Drawing outside of `draw` or `draw.background` events (when using certain canvas functions),
 - Overriding existing overrides the API employs (use events instead, see [events and overrides](#events-and-overrides)),
-- Somehow turning off the background's grid lines, the background altogether, the minimap's viewport, the minimap altogether,
-- Running `ren_pattern_grid false`.
+- Somehow turning off the background's grid lines, the background altogether, the minimap's viewport, the minimap altogether, the pattern grid.
 
-As of now, the API silently ignores the request to change grid opacity to 0 and sets it to 0.001 instead. Moreover, viewport is displayed, but is completely hidden by the API. However, that is only possible due to the `input.set_convar()` and `input.execute()` overrides. If changed otherwise, for instance using the game's built-in console, these overrides won't work and the API will break.
+As of now, the API silently ignores the request to change grid opacity to 0 and sets it to 0.001 instead. Moreover, viewport is displayed, but is completely hidden by the API, and it's impossible to set `ren_pattern_grid` to false. However, that is only possible due to the `input.set_convar()` and `input.execute()` overrides. If changed otherwise, for instance using the game's built-in console or with `api.execute()`, these overrides won't work and the API will break.
 
 # Usage
 To start using the API from a userscript, you first need to get its object:
@@ -66,7 +65,7 @@ api.remove("event_name", handler); // Remove that handler
 Userscripts can listen to 3 events to start themselves up:
 - The `canvas` event is fired when the canvas is created,
 - The `input` event is fired when `window.input` exists,
-- The `ready` event is fired when the game is fully loaded. As of now, this event is equal to the `input` event.
+- The `ready` event is fired when the game is fully loaded. At this event, `api.module` is fully initialised.
 
 The API overrides the functions listed below and more. You shouldn't override them again - instead, listen to their respective events:
 - `canvas.onmousemove`: below
@@ -145,10 +144,10 @@ The full structure of the API's information:
 | `game_ready` | whether or not the `ready` event has been fired |
 | `canvas` | the game's canvas element |
 | `ctx` | the game's canvas drawing context |
-| `ratio` | a number used to scale drawn elements. Use `scale` below instead of this |
 | `scale` | the same as `ratio`, but in range (0, 1] |
 | `ui_scale` | the same as above, but takes the UI scale into account. Use this for things like minimap or scoreboard and `scale` for everything else |
 | `in_game` | a boolean, "in game" meaning alive, not on deathscreen, not in the main menu |
+| `module` | returns the game's Module object. It starts existing before the `ready` event, but isn't fully initialised |
 | `player` | an object with player tank's position on the map |
 | `camera` | an object with player camera's position on the map and Field of View |
 | `mouse` | an object with player mouse's position on the screen and on the map |
@@ -159,6 +158,7 @@ The full structure of the API's information:
 | `viewport_opacity` | `globalAlpha` for the viewport |
 | `to_map(x, y)` | turn coordinates from the screen into in-game map coordinates, like mouse position |
 | `to_screen(x, y)` | turn in-game map coordinates into screen coordinates, examples below |
+| `to_minimap(x, y)` | turn in-game map coordinates into coordinates on the minimap |
 | `execute(str)` | if you ever felt the need of bypassing the API's override of `input.execute()` |
 | `on(what, handler)` | look [usage](#usage) and [events and overrides](#events-and-overrides) |
 | `once(what, handler)` | look [usage](#usage) and [events and overrides](#events-and-overrides) |
