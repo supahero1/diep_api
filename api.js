@@ -23,9 +23,21 @@ function diep_api() {
   if(win[api_]) {
     return;
   }
+  function validate(fn, args, types) {
+    for(let i = 0; i < types.length; ++i) {
+      if(typeof args[i] != types[i]) {
+        throw new Error("api." + fn + ": argument " + (i + 1) + ": expected format \"" + types[i] + "\", got \"" + (typeof args[i]) + "\"");
+      }
+    }
+  }
+  function validate_range(fn, arg, min, max) {
+    if(arg < min || arg > max) {
+      throw new Error("api." + fn + ": argument " + (i + 1) + ": expected range [" + min + " - " + max + "], got " + arg);
+    }
+  }
   
   const api = {
-    version: "v0.2.4",
+    version: "v0.2.5",
     
     events: new Map,
     
@@ -51,6 +63,7 @@ function diep_api() {
     execute: function(str){},
     is_in_game: false,
     module: undefined,
+    scripts: new Map,
     
     background_color: "#cdcdcd",
     grid_color: "#000000",
@@ -237,6 +250,12 @@ function diep_api() {
     },
     update_map: function(w, h) {
       this.map_size = this.canvas.width / this.camera.fov * this.minimap.normal.side / w / this.scale;
+    },
+    
+    register: function(meta) {
+      if(!this.scripts.get(meta.name)) {
+        this.scripts.set(meta.name, { author: meta.author, callbacks: meta.callbacks });
+      }
     }
   };
   
@@ -323,20 +342,15 @@ function diep_api() {
       }
       
       set viewport_color(color) {
-        if(typeof color != "string") {
-          throw new Error("Invalid arguments to api.set_viewport_color()");
-          return;
-        }
+        validate("viewport_color", [color], ["string"]);
         api.viewport_color = color;
       }
       get viewport_color() {
         return api.viewport_color;
       }
       set viewport_opacity(op) {
-        if(typeof op != "number" || op < 0 || op > 1) {
-          throw new Error("Invalid arguments to api.set_viewport_opacity()");
-          return;
-        }
+        validate("viewport_opacity", [op], ["number"]);
+        validate_range("viewport_opacity", op, 0, 1);
         api.viewport_opacity = op;
       }
       get viewport_opacity() {
@@ -353,61 +367,43 @@ function diep_api() {
         return api.to_minimap(x, y);
       }
       execute(str) {
-        if(typeof str != "string") {
-          throw new Error("Invalid arguments to api.execute()");
-          return;
-        }
+        validate("execute", [str], ["string"]);
         return api.execute(str);
+      }
+      register(meta) {
+        validate("register", [meta], ["object"]);
+        validate("register.meta", [meta.name, meta.author, meta.callbacks], ["string", "string", "object"]);
+        validate("register.meta.callbacks", [...Object.entries(meta.callbacks).flat()], " string function".repeat(Object.keys(meta.callbacks).length).slice(1).split(" "));
+        return api.register(meta);
       }
       
       on(what, cb) {
-        if(typeof what != "string" || typeof cb != "function") {
-          throw new Error("Invalid arguments to api.on()");
-          return;
-        }
+        validate("on", [what, cb], ["string", "function"]);
         return api.on(what, cb);
       }
       once(what, cb) {
-        if(typeof what != "string" || typeof cb != "function") {
-          throw new Error("Invalid arguments to api.once()");
-          return;
-        }
+        validate("once", [what, cb], ["string", "function"]);
         return api.once(what, cb);
       }
       remove(what, cb) {
-        if(typeof what != "string" || typeof cb != "function") {
-          throw new Error("Invalid arguments to api.remove()");
-          return;
-        }
+        validate("remove", [what, cb], ["string", "function"]);
         return api.remove(what, cb);
       }
       
       inject_before(fn, cb) {
-        if(typeof fn != "function" || typeof cb != "function") {
-          throw new Error("Invalid arguments to api.inject_before()");
-          return;
-        }
+        validate("inject_before", [fn, cb], ["function", "function"]);
         return api.inject_before(fn, cb);
       }
       inject_after(fn, cb) {
-        if(typeof fn != "function" || typeof cb != "function") {
-          throw new Error("Invalid arguments to api.inject_after()");
-          return;
-        }
+        validate("inject_after", [fn, cb], ["function", "function"]);
         return api.inject_after(fn, cb);
       }
       override(fn, cb) {
-        if(typeof fn != "function" || typeof cb != "function") {
-          throw new Error("Invalid arguments to api.override()");
-          return;
-        }
+        validate("override", [fn, cb], ["function", "function"]);
         return api.override(fn, cb);
       }
       override_extended(fn, cb) {
-        if(typeof fn != "function" || typeof cb != "function") {
-          throw new Error("Invalid arguments to api.override_extended()");
-          return;
-        }
+        validate("override_extended", [fn, cb], ["function", "function"]);
         return api.override_extended(fn, cb);
       }
     },
@@ -561,7 +557,6 @@ function diep_api() {
       
       api.emit("resize");
     });
-    win.onerror = api.override(win.onerror, function(){});
     win.onbeforeunload = api.override(win.onbeforeunload, function(e) {
       if(win.input.should_prevent_unload()) {
         e.preventDefault();
@@ -797,5 +792,6 @@ function diep_api() {
   
   api.once("ready", function() {
     log("ready");
+    //win.api_ = api;
   });
 })();
