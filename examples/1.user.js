@@ -15,6 +15,8 @@
 const api = diep_api();
 
 api.on("draw", function() {
+  api.begin_path();
+  
   api.ctx.beginPath();
   api.ctx.fillStyle = "#000";
   let pos = api.to_minimap(api.mouse.x, api.mouse.y);
@@ -32,4 +34,6 @@ api.on("draw", function() {
   pos = api.to_minimap(api.camera.x, api.camera.y);
   api.ctx.arc(pos.x, pos.y, api.ui_scale * 2, 0, Math.PI * 2);
   api.ctx.fill();
+  
+  api.close_path();
 });

@@ -15,6 +15,8 @@
 const api = diep_api();
 
 api.on("draw.background", function() {
+  api.begin_path();
+  
   api.ctx.beginPath();
   api.ctx.setLineDash([50 * api.scale * api.camera.fov, 50 * api.scale * api.camera.fov]);
   api.ctx.lineWidth = 10 * api.scale * api.camera.fov;
@@ -28,4 +30,6 @@ api.on("draw.background", function() {
   api.ui_scale, because we are drawing on the screen, not on any of the UI elements. */
   api.ctx.arc(0, 0, api.map_size * 0.5 * api.scale * api.camera.fov - api.ctx.lineWidth / 2, 0, Math.PI * 2);
   api.ctx.stroke();
+  
+  api.close_path();
 });

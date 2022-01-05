@@ -132,6 +132,11 @@ You can revert any of the above by replacing `true` with `false` and retrying.
 
 Due to stopping of the above, keyboard and mouse events are actually 2 different events. The one with `pre` will always be called before the event is even processed, while the one without `pre` will only be called if the event is deemed valid by the game and if it's not stopped by the above control behavior.
 
+Additionally, if within a `pre` event, it's possible to prevent keys/mouse only for that one event:
+- `api.prevent_keys_once()`,
+- `api.prevent_mouse_buttons_once()`,
+- `api.prevent_mouse_movement_once()`.
+
 # Game state
 The API helps collect information about a bunch of things, for instance the player's position on the map. Any userscript can then use that information in any way.
 
@@ -144,6 +149,7 @@ The full structure of the API's information:
 | `game_ready` | whether or not the `ready` event has been fired |
 | `canvas` | the game's canvas element |
 | `ctx` | the game's canvas drawing context |
+| `ratio` | a number used to scale image drawn on the canvas |
 | `scale` | the same as `ratio`, but in range (0, 1] |
 | `ui_scale` | the same as above, but takes the UI scale into account. Use this for things like minimap or scoreboard and `scale` for everything else |
 | `in_game` | a boolean, "in game" meaning alive, not on deathscreen, not in the main menu |
@@ -160,6 +166,8 @@ The full structure of the API's information:
 | `to_screen(x, y)` | turn in-game map coordinates into screen coordinates, examples below |
 | `to_minimap(x, y)` | turn in-game map coordinates into coordinates on the minimap |
 | `execute(str)` | if you ever felt the need of bypassing the API's override of `input.execute()` |
+| `begin_path()` | if inside `draw` or `draw.background` events, this function must be the first to be called if the userscript intends to draw anything |
+| `close_path()` | the same as the above, but must be called after everything has been drawn |
 | `on(what, handler)` | look [usage](#usage) and [events and overrides](#events-and-overrides) |
 | `once(what, handler)` | look [usage](#usage) and [events and overrides](#events-and-overrides) |
 | `remove(what, handler)` | look [usage](#usage) and [events and overrides](#events-and-overrides) |

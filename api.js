@@ -32,12 +32,12 @@ function diep_api() {
   }
   function validate_range(fn, arg, min, max) {
     if(arg < min || arg > max) {
-      throw new Error("api." + fn + ": argument " + (i + 1) + ": expected range [" + min + " - " + max + "], got " + arg);
+      throw new Error("api." + fn + ": expected range [" + min + " - " + max + "], got " + arg);
     }
   }
   
   const api = {
-    version: "v0.2.5",
+    version: "v0.2.6",
     
     events: new Map,
     
@@ -63,7 +63,9 @@ function diep_api() {
     execute: function(str){},
     is_in_game: false,
     module: undefined,
-    scripts: new Map,
+    
+    scripts: new Set,
+    menu_visible: false,
     
     background_color: "#cdcdcd",
     grid_color: "#000000",
@@ -75,12 +77,14 @@ function diep_api() {
     viewport_opacity: 0.1,
     
     pos_phase: 0,
-    pos_phase0: [NaN, NaN],
-    pos_phase1: [NaN, NaN],
+    positions: [[NaN, NaN], [NaN, NaN], [NaN, NaN], [NaN, NaN], [NaN, NaN], [NaN, NaN]],
     
     prevent_mouse_movement: false,
+    prevent_mouse_movement_once: false,
     prevent_mouse_buttons: false,
+    prevent_mouse_buttons_once: false,
     prevent_keys: false,
+    prevent_keys_once: false,
     typing: false,
     
     player: {
@@ -120,6 +124,7 @@ function diep_api() {
     },
     map_size: NaN,
     transform: { x: 0, y: 0, w: 1, h: 1 },
+    pivot: { x: 0, y: 0 },
     
     clear_ctx: function(ctx) {
       ctx.save();
@@ -252,10 +257,18 @@ function diep_api() {
       this.map_size = this.canvas.width / this.camera.fov * this.minimap.normal.side / w / this.scale;
     },
     
-    register: function(meta) {
-      if(!this.scripts.get(meta.name)) {
-        this.scripts.set(meta.name, { author: meta.author, callbacks: meta.callbacks });
-      }
+    register: function(script) {
+      this.scripts.add({ ...script, keybind: localStorage["diep.api.keybind." + script.name + "." + script.author] });
+    },
+    
+    begin_path: function() {
+      this.drawing_unsafe = true;
+      this.ctx.save();
+      this.ctx.resetTransform();
+    },
+    close_path: function() {
+      this.ctx.restore();
+      this.drawing_unsafe = false;
     }
   };
   
@@ -281,6 +294,9 @@ function diep_api() {
         return api.ctx;
       }
       
+      get ratio() {
+        return api.ratio;
+      }
       get scale() {
         return api.scale;
       }
@@ -320,17 +336,26 @@ function diep_api() {
       get preventing_mouse_movement() {
         return api.prevent_mouse_movement;
       }
+      prevent_mouse_movement_once() {
+        api.prevent_mouse_movement_once = true;
+      }
       set preventing_mouse_buttons(bool) {
         api.prevent_mouse_buttons = !!bool;
       }
       get preventing_mouse_buttons() {
         return api.prevent_mouse_buttons;
       }
+      prevent_mouse_buttons_once() {
+        api.prevent_mouse_buttons_once = true;
+      }
       set preventing_keys(bool) {
         api.prevent_keys = !!bool;
       }
       get preventing_keys() {
         return api.prevent_keys;
+      }
+      prevent_keys_once() {
+        api.prevent_keys_once = true;
       }
       set typing(bool) {
         bool = !!bool;
@@ -370,11 +395,16 @@ function diep_api() {
         validate("execute", [str], ["string"]);
         return api.execute(str);
       }
-      register(meta) {
-        validate("register", [meta], ["object"]);
-        validate("register.meta", [meta.name, meta.author, meta.callbacks], ["string", "string", "object"]);
-        validate("register.meta.callbacks", [...Object.entries(meta.callbacks).flat()], " string function".repeat(Object.keys(meta.callbacks).length).slice(1).split(" "));
-        return api.register(meta);
+      register(script) {
+        validate("register", [script], ["object"]);
+        validate("register.script", [script.name, script.author, script.description, script.handler], ["string", "string", "string", "function"]);
+        return api.register(script);
+      }
+      begin_path() {
+        return api.begin_path();
+      }
+      close_path() {
+        return api.close_path();
       }
       
       on(what, cb) {
@@ -474,12 +504,7 @@ function diep_api() {
       }
       const ret = to.apply(what, args);
       if(ok) {
-        api.drawing_unsafe = true;
-        api.ctx.save();
-        api.ctx.resetTransform();
         api.emit("draw");
-        api.ctx.restore();
-        api.drawing_unsafe = false;
       }
       return ret;
     }
@@ -568,13 +593,14 @@ function diep_api() {
     });
     api.canvas.onmousemove = api.override(api.canvas.onmousemove, function(){});
     win.onmousemove = function(e) {
-      api.emit("pre.mouse.move", e);
-      
       api.mouse.raw_x = e.clientX * win.devicePixelRatio;
       api.mouse.raw_y = e.clientY * win.devicePixelRatio;
       api.update_mouse();
       
-      if(api.prevent_mouse_movement) {
+      api.emit("pre.mouse.move", e);
+      
+      if(api.prevent_mouse_movement || api.prevent_mouse_movement_once) {
+        api.prevent_mouse_movement_once = false;
         e.preventDefault();
         e.stopImmediatePropagation();
         return;
@@ -587,7 +613,8 @@ function diep_api() {
     win.onmousedown = function(e) {
       api.emit("pre.mouse.down", e);
       
-      if(api.prevent_mouse_buttons) {
+      if(api.prevent_mouse_buttons || api.prevent_mouse_buttons_once) {
+        api.prevent_mouse_buttons_once = false;
         e.preventDefault();
         e.stopImmediatePropagation();
         return;
@@ -602,7 +629,8 @@ function diep_api() {
     win.onmouseup = function(e) {
       api.emit("pre.mouse.up", e);
       
-      if(api.prevent_mouse_buttons) {
+      if(api.prevent_mouse_buttons || api.prevent_mouse_buttons_once) {
+        api.prevent_mouse_buttons_once = false;
         e.preventDefault();
         e.stopImmediatePropagation();
         return;
@@ -616,7 +644,8 @@ function diep_api() {
     win.onkeydown = api.override_extended(win.onkeydown, function(fn, e) {
       api.emit("pre.key.down", e);
       
-      if(api.prevent_keys) {
+      if(api.prevent_keys || api.prevent_keys_once) {
+        api.prevent_keys_once = false;
         e.preventDefault();
         e.stopImmediatePropagation();
         return;
@@ -628,7 +657,8 @@ function diep_api() {
     win.onkeyup = api.override_extended(win.onkeyup, function(fn, e) {
       api.emit("pre.key.up", e);
       
-      if(api.prevent_keys) {
+      if(api.prevent_keys || api.prevent_keys_once) {
+        api.prevent_keys_once = false;
         e.preventDefault();
         e.stopImmediatePropagation();
         return;
@@ -674,42 +704,39 @@ function diep_api() {
   }
   
   const c = win.CanvasRenderingContext2D.prototype;
-  c.stroke = api.inject_before(c.stroke, function() {
+  c.stroke = api.override_extended(c.stroke, function(fn, path) {
     if(!api.drew_grid && !api.drawing_unsafe && this.fillStyle == api.background_color && this.strokeStyle == api.grid_color) {
       api.drew_grid = true;
       api.camera.fov = this.globalAlpha / api.grid_opacity / api.scale;
     }
-    api.pos_phase = 0;
+    /*if(!api.drawing_unsafe && !api.drew_minimap) {
+      if(api.pos_phase >= 2 && api.pos_phase <= 5) {
+        api.emit("pre.shape.stroke." + "triangle quad pentagon hexagon".split(" ")[api.pos_phase - 2]);
+      }
+      fn.apply(this, []);
+      if(api.pos_phase >= 2 && api.pos_phase <= 5) {
+        api.emit("shape.stroke." + "triangle quad pentagon hexagon".split(" ")[api.pos_phase - 2]);
+      }
+      return;
+    }*/
+    return fn.apply(this, path ? [path] : []);
   });
   c.moveTo = api.inject_before(c.moveTo, function(x, y) {
-    if(!api.drew_minimap || api.pos_phase != 0) {
-      api.pos_phase = 0;
-      return;
-    }
-    if(api.within_minimap(x, y)) {
-      api.pos_phase0[0] = x;
-      api.pos_phase0[1] = y;
-      api.pos_phase = 1;
-    } else {
-      api.pos_phase = 0;
-    }
+    api.pivot.x = x + api.transform.x;
+    api.pivot.y = y + api.transform.y;
+    
+    api.pos_phase = 0;
+    api.positions[0][0] = api.pivot.x;
+    api.positions[0][1] = api.pivot.y;
   });
   c.lineTo = api.inject_before(c.lineTo, function(x, y) {
-    if(api.drawing_unsafe || !api.drew_minimap || api.pos_phase == 0 || !api.within_minimap(x, y) || Math.hypot(api.pos_phase0[0] - x, api.pos_phase0[1] - y) > 15 * api.ui_scale) {
-      api.pos_phase = 0;
-      return;
-    }
-    if(api.pos_phase == 1) {
-      api.pos_phase1[0] = x;
-      api.pos_phase1[1] = y;
-      api.pos_phase = 2;
-    } else {
-      api.player.raw_x = (api.pos_phase0[0] + api.pos_phase1[0] + x) / 3;
-      api.player.raw_y = (api.pos_phase0[1] + api.pos_phase1[1] + y) / 3;
-      api.player.x = (api.player.raw_x - api.minimap.extended.x) / api.minimap.extended.side;
-      api.player.y = (api.player.raw_y - api.minimap.extended.y) / api.minimap.extended.side;
-      api.drew_player = true;
-      api.pos_phase = 0;
+    api.pivot.x = x + api.transform.x;
+    api.pivot.y = y + api.transform.y;
+    
+    ++api.pos_phase;
+    if(api.pos_phase <= 5) {
+      api.positions[api.pos_phase][0] = api.pivot.x;
+      api.positions[api.pos_phase][1] = api.pivot.y;
     }
   });
   c.setTransform = api.inject_before(c.setTransform, function(a, b, c, d, e, f) {
@@ -728,20 +755,24 @@ function diep_api() {
         api.clear_ctx(api.ctxs[0]);
         return ret;
       }
+      api.pivot.x = x + api.transform.x;
+      api.pivot.y = y + api.transform.y;
+      const pivot_w = w * api.transform.w;
+      const pivot_h = h * api.transform.h;
       if(
-        Math.abs(x + api.transform.x - api.minimap.normal.x) < 0.1 * api.ui_scale &&
-        Math.abs(y + api.transform.y - api.minimap.normal.y) < 0.1 * api.ui_scale &&
-        Math.abs(w * api.transform.w - api.minimap.normal.side) < 0.1 * api.ui_scale &&
-        Math.abs(h * api.transform.h - api.minimap.normal.side) < 0.1 * api.ui_scale
+        Math.abs(api.pivot.x - api.minimap.normal.x) < 0.1 * api.ui_scale &&
+        Math.abs(api.pivot.y - api.minimap.normal.y) < 0.1 * api.ui_scale &&
+        Math.abs(pivot_w - api.minimap.normal.side) < 0.1 * api.ui_scale &&
+        Math.abs(pivot_h - api.minimap.normal.side) < 0.1 * api.ui_scale
       ) {
         api.drew_minimap = true;
-      } else if(api.drew_minimap && this.fillStyle == "#000000" && api.within_minimap(x + api.transform.x + w * api.transform.w / 2, y + api.transform.y + h * api.transform.h / 2) && this.globalAlpha == 0.1) {
-        api.camera.raw_x = x + api.transform.x + w * api.transform.w / 2;
-        api.camera.raw_y = y + api.transform.y + h * api.transform.h / 2;
+      } else if(api.drew_minimap && this.fillStyle == "#000000" && api.within_minimap(api.pivot.x + pivot_w / 2, api.pivot.y + pivot_h / 2) && this.globalAlpha == 0.1) {
+        api.camera.raw_x = api.pivot.x + pivot_w / 2;
+        api.camera.raw_y = api.pivot.y + pivot_h / 2;
         api.camera.x = (api.camera.raw_x - api.minimap.extended.x) / api.minimap.extended.side;
         api.camera.y = (api.camera.raw_y - api.minimap.extended.y) / api.minimap.extended.side;
         api.update_mouse();
-        api.update_map(w * api.transform.w, h * api.transform.h);
+        api.update_map(pivot_w, pivot_h);
         let ret;
         if(api.viewport) {
           api.ctx.save();
@@ -754,12 +785,7 @@ function diep_api() {
         api.ctxs[2].drawImage(api.canvases[0], 0, 0);
         api.clear_ctx(api.ctxs[0]);
         api.ctxs[0].drawImage(api.canvases[1], 0, 0);
-        api.drawing_unsafe = true;
-        api.ctx.save();
-        api.ctx.resetTransform();
         api.emit("draw.background");
-        api.ctx.restore();
-        api.drawing_unsafe = false;
         api.ctxs[0].drawImage(api.canvases[2], 0, 0);
         return ret;
       }
@@ -770,6 +796,37 @@ function diep_api() {
     if(!api.drawing_unsafe) {
       ++api.drew_bg;
     }
+  });
+  c.fill = api.override_extended(c.fill, function(fn, path) {
+    if(!api.drawing_unsafe) {
+      if(api.drew_minimap) {
+        if(api.pos_phase == 2) {
+          api.player.raw_x = (api.positions[0][0] + api.positions[1][0] + api.positions[2][0]) / 3;
+          api.player.raw_y = (api.positions[0][1] + api.positions[1][1] + api.positions[2][1]) / 3;
+          api.player.x = (api.player.raw_x - api.minimap.extended.x) / api.minimap.extended.side;
+          api.player.y = (api.player.raw_y - api.minimap.extended.y) / api.minimap.extended.side;
+          api.drew_player = true;
+        }
+      }/* else {
+        if(api.pos_phase >= 2 && api.pos_phase <= 5) {
+          api.pivot.x = 0;
+          api.pivot.y = 0;
+          for(let i = 0; i <= api.pos_phase; ++i) {
+            api.pivot.x += api.positions[i][0];
+            api.pivot.y += api.positions[i][1];
+          }
+          api.pivot.x /= api.pos_phase + 1;
+          api.pivot.y /= api.pos_phase + 1;
+          api.emit("pre.shape.fill." + "triangle quad pentagon hexagon".split(" ")[api.pos_phase - 2]);
+        }
+        fn.apply(this, path ? [path] : []);
+        if(api.pos_phase >= 2 && api.pos_phase <= 5) {
+          api.emit("shape.fill." + "triangle quad pentagon hexagon".split(" ")[api.pos_phase - 2]);
+        }
+        return;
+      }*/
+    }
+    return fn.apply(this, path ? [path] : []);
   });
   
   api.once("input", function() {
@@ -788,10 +845,33 @@ function diep_api() {
     
     api.execute("ren_minimap_viewport 1");
     api.execute("ren_pattern_grid 1");
+    
+    /*api.on("pre.key.up", function({ code }) {
+      if(code == "KeyQ") {
+        api.menu_visible = !api.menu_visible;
+        
+      }
+    });*/
   });
   
   api.once("ready", function() {
     log("ready");
-    //win.api_ = api;
   });
+  
+  /*for(const shape of "triangle quad pentagon hexagon".split(" ")) {
+    api.on("shape.stroke." + shape, function() {
+      api.begin_path();
+      
+      api.ctx.textBaseline = "middle";
+      api.ctx.textAlign = "center";
+      api.ctx.font = `${api.scale * api.camera.fov * 20}px Ubuntu`;
+      api.ctx.strokeStyle = "#000";
+      api.ctx.fillStyle = "#FFF";
+      api.ctx.lineWidth = api.scale * api.camera.fov * 4;
+      api.ctx.strokeText(shape, api.pivot.x, api.pivot.y);
+      api.ctx.fillText(shape, api.pivot.x, api.pivot.y);
+      
+      api.close_path();
+    });
+  }*/
 })();
