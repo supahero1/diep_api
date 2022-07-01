@@ -485,7 +485,7 @@ function diep_api() {
   win.requestAnimationFrame = new Proxy(win.requestAnimationFrame, {
     apply: function(to, what, args) {
       let ok = false;
-      if(args[0].toString().startsWith("function Browser_mainLoop_runner()")) {
+      if(args[0].toString().includes(".mainLoop.")) {
         ok = true;
         let died = false;
         if(api.is_in_game) {
